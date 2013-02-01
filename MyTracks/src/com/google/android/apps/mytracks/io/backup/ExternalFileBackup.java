@@ -40,6 +40,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -52,8 +53,8 @@ import java.util.zip.ZipOutputStream;
  */
 class ExternalFileBackup {
   // Filename format - in UTC
-  private static final SimpleDateFormat BACKUP_FILENAME_FORMAT =
-      new SimpleDateFormat("'backup-'yyyy-MM-dd_HH-mm-ss'.zip'");
+  private static final SimpleDateFormat BACKUP_FILENAME_FORMAT = new SimpleDateFormat(
+      "'backup-'yyyy-MM-dd_HH-mm-ss'.zip'", Locale.US);
   static {
     BACKUP_FILENAME_FORMAT.setTimeZone(TimeZone.getTimeZone("UTC"));
   }
@@ -174,28 +175,42 @@ class ExternalFileBackup {
     try {
       // Dump the entire contents of each table
       ContentResolver contentResolver = context.getContentResolver();
-      Cursor tracksCursor = contentResolver.query(
-          TracksColumns.CONTENT_URI, null, null, null, null);
+      Cursor tracksCursor = null;
       try {
-        trackDumper.writeAllRows(tracksCursor, outWriter);
+        tracksCursor = contentResolver.query(TracksColumns.CONTENT_URI, null, null, null, null);
+        if (tracksCursor != null) {
+          trackDumper.writeAllRows(tracksCursor, outWriter);
+        }
       } finally {
-        tracksCursor.close();
+        if (tracksCursor != null) {
+          tracksCursor.close();
+        }
       }
 
-      Cursor waypointsCursor = contentResolver.query(
-          WaypointsColumns.CONTENT_URI, null, null, null, null);
+      Cursor waypointsCursor = null;
       try {
-        waypointDumper.writeAllRows(waypointsCursor, outWriter);
+        waypointsCursor = contentResolver.query(
+            WaypointsColumns.CONTENT_URI, null, null, null, null);
+        if (waypointsCursor != null) {
+          waypointDumper.writeAllRows(waypointsCursor, outWriter);
+        }
       } finally {
-        waypointsCursor.close();
+        if (waypointsCursor != null) {
+          waypointsCursor.close();
+        }
       }
 
-      Cursor pointsCursor = contentResolver.query(
-          TrackPointsColumns.CONTENT_URI, null, null, null, null);
+      Cursor pointsCursor = null;
       try {
-        pointDumper.writeAllRows(pointsCursor, outWriter);
+        pointsCursor = contentResolver.query(
+            TrackPointsColumns.CONTENT_URI, null, null, null, null);
+        if (pointsCursor != null) {
+          pointDumper.writeAllRows(pointsCursor, outWriter);
+        }
       } finally {
-        pointsCursor.close();
+        if (pointsCursor != null) {
+          pointsCursor.close();
+        }
       }
 
       // Dump preferences
