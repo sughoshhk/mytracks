@@ -17,6 +17,10 @@
 package com.google.android.apps.mytracks.io.sendtogoogle;
 
 import com.google.android.apps.mytracks.Constants;
+import com.google.android.apps.mytracks.fragments.AddEmailsDialogFragment;
+import com.google.android.apps.mytracks.fragments.AddEmailsDialogFragment.AddEmailsCaller;
+import com.google.android.apps.mytracks.fragments.ChooseAccountDialogFragment;
+import com.google.android.apps.mytracks.fragments.ChooseAccountDialogFragment.ChooseAccountCaller;
 import com.google.android.apps.mytracks.io.drive.SendDriveActivity;
 import com.google.android.apps.mytracks.io.fusiontables.SendFusionTablesActivity;
 import com.google.android.apps.mytracks.io.gdata.maps.MapsConstants;
@@ -34,11 +38,9 @@ import android.accounts.AccountManagerFuture;
 import android.accounts.AuthenticatorException;
 import android.accounts.OperationCanceledException;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Dialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -49,43 +51,19 @@ import java.io.IOException;
  * 
  * @author Jimmy Shih
  */
-public class AccountChooserActivity extends Activity {
+public class AccountChooserActivity extends FragmentActivity
+    implements ChooseAccountCaller, AddEmailsCaller {
 
   private static final String TAG = AccountChooserActivity.class.getSimpleName();
-  private static final int DIALOG_NO_ACCOUNT_ID = 0;
-  private static final int DIALOG_CHOOSER_ID = 1;
 
   private SendRequest sendRequest;
-  private Account[] accounts;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     sendRequest = getIntent().getParcelableExtra(SendRequest.SEND_REQUEST_KEY);
-    accounts = AccountManager.get(this).getAccountsByType(Constants.ACCOUNT_TYPE);
-
-    if (accounts.length == 0) {
-      showDialog(DIALOG_NO_ACCOUNT_ID);
-      return;
-    }
-
-    if (accounts.length == 1) {
-      sendRequest.setAccount(accounts[0]);
-      PreferencesUtils.setString(this, R.string.google_account_key, accounts[0].name);
-      checkDrivePermission();
-      return;
-    }
-
-    String googleAccount = PreferencesUtils.getString(
-        this, R.string.google_account_key, PreferencesUtils.GOOGLE_ACCOUNT_DEFAULT);
-    for (int i = 0; i < accounts.length; i++) {
-      if (accounts[i].name.equals(googleAccount)) {
-        sendRequest.setAccount(accounts[i]);
-        checkDrivePermission();
-        return;
-      }
-    }
-    showDialog(DIALOG_CHOOSER_ID);
+    new ChooseAccountDialogFragment().show(
+        getSupportFragmentManager(), ChooseAccountDialogFragment.CHOOSE_ACCOUNT_DIALOG_TAG);
   }
 
   @Override
@@ -121,57 +99,26 @@ public class AccountChooserActivity extends Activity {
   }
 
   @Override
-  protected Dialog onCreateDialog(int id) {
-    switch (id) {
-      case DIALOG_NO_ACCOUNT_ID:
-        return new AlertDialog.Builder(this).setCancelable(true)
-            .setMessage(R.string.send_google_no_account_message)
-            .setOnCancelListener(new DialogInterface.OnCancelListener() {
-                @Override
-              public void onCancel(DialogInterface dialog) {
-                finish();
-              }
-            }).setPositiveButton(R.string.generic_ok, new DialogInterface.OnClickListener() {
-              public void onClick(DialogInterface dialog, int which) {
-                finish();
-              }
-            }).setTitle(R.string.send_google_no_account_title).create();
-      case DIALOG_CHOOSER_ID:
-        return createChooserDialog();
-      default:
-        return null;
+  public void onChooseAccountDone() {
+    String googleAccount = PreferencesUtils.getString(
+        this, R.string.google_account_key, PreferencesUtils.GOOGLE_ACCOUNT_DEFAULT);
+    if (googleAccount == null || googleAccount.equals(PreferencesUtils.GOOGLE_ACCOUNT_DEFAULT)) {
+      finish();
+      return;
     }
+    sendRequest.setAccount(new Account(googleAccount, Constants.ACCOUNT_TYPE));
+    checkDrivePermission();
   }
 
-  /**
-   * Creates a chooser dialog.
-   */
-  private Dialog createChooserDialog() {
-    String[] choices = new String[accounts.length];
-    for (int i = 0; i < accounts.length; i++) {
-      choices[i] = accounts[i].name;
+  @Override
+  public void onAddEmailsDone(String emails) {
+    if (emails != null && !emails.equals("")) {
+      sendRequest.setDriveShareEmails(emails);
+      Intent intent = IntentUtils.newIntent(this, SendDriveActivity.class)
+          .putExtra(SendRequest.SEND_REQUEST_KEY, sendRequest);
+      startActivity(intent);
     }
-    return new AlertDialog.Builder(this).setCancelable(true)
-        .setNegativeButton(R.string.generic_cancel, new DialogInterface.OnClickListener() {
-          public void onClick(DialogInterface dialog, int which) {
-            finish();
-          }
-        }).setOnCancelListener(new DialogInterface.OnCancelListener() {
-            @Override
-          public void onCancel(DialogInterface dialog) {
-            finish();
-          }
-        }).setPositiveButton(R.string.generic_ok, new DialogInterface.OnClickListener() {
-          public void onClick(DialogInterface dialog, int which) {
-            int position = ((AlertDialog) dialog).getListView().getCheckedItemPosition();
-            Account account = accounts[position];
-            PreferencesUtils.setString(
-                AccountChooserActivity.this, R.string.google_account_key, account.name);
-            sendRequest.setAccount(account);
-            checkDrivePermission();
-          }
-        }).setSingleChoiceItems(choices, 0, null)
-        .setTitle(R.string.send_google_choose_account_title).create();
+    finish();
   }
 
   /**
@@ -209,7 +156,7 @@ public class AccountChooserActivity extends Activity {
       fusionTablesCallback.onSuccess();
     }
   }
- 
+
   /**
    * Checks the Spreadsheet permission.
    */
@@ -320,14 +267,22 @@ public class AccountChooserActivity extends Activity {
    * <p>
    * !sendMaps && sendFusionTables -> {@link SendFusionTablesActivity}
    * <p>
-   * !sendMaps && !sendFusionTables && sendSpreadsheets -> {@link SendSpreadsheetsActivity}
+   * !sendMaps && !sendFusionTables && sendSpreadsheets ->
+   * {@link SendSpreadsheetsActivity}
    * <p>
-   * !sendMaps && !sendFusionTables && !sendSpreadsheets -> {@link UploadResultActivity}
+   * !sendMaps && !sendFusionTables && !sendSpreadsheets ->
+   * {@link UploadResultActivity}
    */
   private void startNextActivity() {
     Class<?> next;
     if (sendRequest.isSendDrive()) {
-      next = SendDriveActivity.class;
+      if (sendRequest.isDriveShare()) {
+        AddEmailsDialogFragment.newInstance(sendRequest.getTrackId())
+            .show(getSupportFragmentManager(), AddEmailsDialogFragment.ADD_EMAILS_DIALOG_TAG);
+        return;
+      } else {
+        next = SendDriveActivity.class;
+      }
     } else if (sendRequest.isSendMaps()) {
       next = sendRequest.isNewMap() ? SendMapsActivity.class : ChooseMapActivity.class;
     } else if (sendRequest.isSendFusionTables()) {
