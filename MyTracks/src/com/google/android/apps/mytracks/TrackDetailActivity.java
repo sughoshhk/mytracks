@@ -21,10 +21,9 @@ import com.google.android.apps.mytracks.content.Track;
 import com.google.android.apps.mytracks.content.TrackDataHub;
 import com.google.android.apps.mytracks.content.Waypoint;
 import com.google.android.apps.mytracks.content.WaypointCreationRequest;
-import com.google.android.apps.mytracks.fragments.AddPeopleDialogFragment;
 import com.google.android.apps.mytracks.fragments.ChartFragment;
-import com.google.android.apps.mytracks.fragments.ChooseActivityDialogFragment;
 import com.google.android.apps.mytracks.fragments.ChooseUploadServiceDialogFragment;
+import com.google.android.apps.mytracks.fragments.ChooseUploadServiceDialogFragment.ChooseUploadServiceCaller;
 import com.google.android.apps.mytracks.fragments.ConfirmDialogFragment;
 import com.google.android.apps.mytracks.fragments.ConfirmDialogFragment.ConfirmCaller;
 import com.google.android.apps.mytracks.fragments.DeleteOneTrackDialogFragment;
@@ -71,8 +70,8 @@ import java.util.Locale;
  * @author Leif Hendrik Wilden
  * @author Rodrigo Damazio
  */
-public class TrackDetailActivity extends AbstractMyTracksActivity
-    implements ConfirmCaller, DeleteOneTrackCaller {
+public class TrackDetailActivity extends AbstractSendToGoogleActivity
+    implements ConfirmCaller, ChooseUploadServiceCaller, DeleteOneTrackCaller {
 
   public static final String EXTRA_TRACK_ID = "track_id";
   public static final String EXTRA_MARKER_ID = "marker_id";
@@ -100,7 +99,7 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
   private MenuItem insertMarkerMenuItem;
   private MenuItem playMenuItem;
   private MenuItem shareDriveMenuItem;
-  private MenuItem shareMenuItem;
+  private MenuItem shareMapsMenuItem;
   private MenuItem sendGoogleMenuItem;
   private MenuItem saveMenuItem;
   private MenuItem voiceFrequencyMenuItem;
@@ -305,7 +304,7 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
 
     insertMarkerMenuItem = menu.findItem(R.id.track_detail_insert_marker);
     playMenuItem = menu.findItem(R.id.track_detail_play);
-    shareMenuItem = menu.findItem(R.id.track_detail_share);
+    shareMapsMenuItem = menu.findItem(R.id.track_detail_share_maps);
     sendGoogleMenuItem = menu.findItem(R.id.track_detail_send_google);
     saveMenuItem = menu.findItem(R.id.track_detail_save);
     voiceFrequencyMenuItem = menu.findItem(R.id.track_detail_voice_frequency);
@@ -351,10 +350,10 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
             getString(R.string.share_track_drive_confirm_message), trackId)
             .show(getSupportFragmentManager(), ConfirmDialogFragment.CONFIRM_DIALOG_TAG);
         return true;
-      case R.id.track_detail_share:
+      case R.id.track_detail_share_maps:
         ConfirmDialogFragment.newInstance(R.string.confirm_share_map_key,
             PreferencesUtils.CONFIRM_SHARE_MAP_DEFAULT, StringUtils.getHtml(
-                this, R.string.share_track_map_confirm_message, R.string.maps_public_unlisted_url),
+                this, R.string.share_track_maps_confirm_message, R.string.maps_public_unlisted_url),
             trackId).show(getSupportFragmentManager(), ConfirmDialogFragment.CONFIRM_DIALOG_TAG);
         return true;
       case R.id.track_detail_markers:
@@ -375,8 +374,8 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
       case R.id.track_detail_send_google:
         AnalyticsUtils.sendPageViews(this, "/action/send_google");
         Track track = myTracksProviderUtils.getTrack(trackId);
-        ChooseUploadServiceDialogFragment.newInstance(
-            new SendRequest(trackId), track.isSharedWithMe()).show(getSupportFragmentManager(),
+        ChooseUploadServiceDialogFragment.newInstance(track.isSharedWithMe()).show(
+            getSupportFragmentManager(),
             ChooseUploadServiceDialogFragment.CHOOSE_UPLOAD_SERVICE_DIALOG_TAG);
         return true;
       case R.id.track_detail_save_gpx:
@@ -430,27 +429,58 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
   }
 
   @Override
-  public void onConfirmed(int confirmId, long confirmTrackId) {
+  public void onConfirmDone(int confirmId, long confirmTrackId) {
+    SendRequest sendRequest;
+    Intent intent;
     switch (confirmId) {
       case R.string.confirm_play_earth_key:
         AnalyticsUtils.sendPageViews(this, "/action/play");
-        Intent intent = IntentUtils.newIntent(this, SaveActivity.class)
+        intent = IntentUtils.newIntent(this, SaveActivity.class)
             .putExtra(SaveActivity.EXTRA_TRACK_ID, confirmTrackId)
             .putExtra(SaveActivity.EXTRA_TRACK_FILE_FORMAT, (Parcelable) TrackFileFormat.KML)
             .putExtra(SaveActivity.EXTRA_PLAY_TRACK, true);
         startActivity(intent);
         break;
       case R.string.confirm_share_map_key:
-        AnalyticsUtils.sendPageViews(this, "/action/share");
-        ChooseActivityDialogFragment.newInstance(confirmTrackId, null).show(
-            getSupportFragmentManager(), ChooseActivityDialogFragment.CHOOSE_ACTIVITY_DIALOG_TAG);
+        AnalyticsUtils.sendPageViews(this, "/action/share_map");
+        sendRequest = new SendRequest(trackId);
+        sendRequest.setSendMaps(true);
+        sendRequest.setMapsShare(true);
+        sendToGoogle(sendRequest);
         break;
       case R.string.confirm_share_drive_key:
-        AddPeopleDialogFragment.newInstance(confirmTrackId)
-            .show(getSupportFragmentManager(), AddPeopleDialogFragment.ADD_PEOPLE_DIALOG_TAG);
+        AnalyticsUtils.sendPageViews(this, "/action/share_drive");
+        sendRequest = new SendRequest(trackId);
+        sendRequest.setSendDrive(true);
+        sendRequest.setDriveShare(true);
+        sendToGoogle(sendRequest);
         break;
       default:
     }
+  }
+
+  @Override
+  public void onChooseUploadServiceDone(boolean sendDrive, boolean sendMaps,
+      boolean sendFusionTables, boolean sendSpreadsheets, boolean mapsExistingMap) {
+    SendRequest sendRequest = new SendRequest(trackId);
+    sendRequest.setSendDrive(sendDrive);
+    sendRequest.setSendMaps(sendMaps);
+    sendRequest.setSendFusionTables(sendFusionTables);
+    sendRequest.setSendSpreadsheets(sendSpreadsheets);
+    sendRequest.setMapsExistingMap(mapsExistingMap);
+    if (sendDrive) {
+      AnalyticsUtils.sendPageViews(this, "/send/drive");
+    }
+    if (sendMaps) {
+      AnalyticsUtils.sendPageViews(this, "/send/maps");
+    }
+    if (sendFusionTables) {
+      AnalyticsUtils.sendPageViews(this, "/send/fusion_tables");
+    }
+    if (sendSpreadsheets) {
+      AnalyticsUtils.sendPageViews(this, "/send/spreadsheets");
+    }
+    sendToGoogle(sendRequest);
   }
 
   @Override
@@ -459,7 +489,7 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
   }
 
   @Override
-  public void onTrackDeleted() {
+  public void onDeleteOneTrackDone() {
     runOnUiThread(new Runnable() {
         @Override
       public void run() {
@@ -523,8 +553,8 @@ public class TrackDetailActivity extends AbstractMyTracksActivity
     if (playMenuItem != null) {
       playMenuItem.setVisible(!isRecording);
     }
-    if (shareMenuItem != null) {
-      shareMenuItem.setVisible(!isRecording);
+    if (shareMapsMenuItem != null) {
+      shareMapsMenuItem.setVisible(!isRecording);
     }
     if (shareDriveMenuItem != null && shareDriveMenuItem.isEnabled()) {
       shareDriveMenuItem.setVisible(!isRecording);

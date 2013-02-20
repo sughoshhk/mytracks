@@ -1,5 +1,5 @@
 /*
- * Copyright 2012 Google Inc.
+ * Copyright 2013 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,68 +16,72 @@
 
 package com.google.android.apps.mytracks.fragments;
 
-import com.google.android.apps.mytracks.util.SystemUtils;
 import com.google.android.maps.mytracks.R;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.app.FragmentActivity;
-import android.view.View;
-import android.widget.TextView;
 
 /**
- * A DialogFragment to show information about My Tracks.
+ * A DialogFrament to enable sync.
  * 
  * @author Jimmy Shih
  */
-public class AboutDialogFragment extends DialogFragment {
+public class EnableSyncDialogFragment extends DialogFragment {
 
   /**
    * Interface for caller of this dialog fragment.
    * 
    * @author Jimmy Shih
    */
-  public interface AboutCaller {
+  public interface EnableSyncCaller {
 
     /**
-     * Called when about license is invoked.
+     * Called when enable sync is done.
      */
-    public void onAboutLicense();
+    public void onEnableSyncDone(boolean enable);
   }
 
-  public static final String ABOUT_DIALOG_TAG = "aboutDialog";
+  public static final String ENABLE_SYNC_DIALOG_TAG = "enableSyncDialog";
 
-  private AboutCaller caller;
+  private EnableSyncCaller caller;
   private FragmentActivity fragmentActivity;
 
   @Override
   public void onAttach(Activity activity) {
     super.onAttach(activity);
     try {
-      caller = (AboutCaller) activity;
+      caller = (EnableSyncCaller) activity;
     } catch (ClassCastException e) {
       throw new ClassCastException(
-          activity.toString() + " must implement " + AboutCaller.class.getSimpleName());
+          activity.toString() + " must implement " + EnableSyncCaller.class.getSimpleName());
     }
   }
 
   @Override
   public Dialog onCreateDialog(Bundle savedInstanceState) {
     fragmentActivity = getActivity();
-    View view = fragmentActivity.getLayoutInflater().inflate(R.layout.about, null);
-    TextView aboutVersion = (TextView) view.findViewById(R.id.about_version);
-    aboutVersion.setText(SystemUtils.getMyTracksVersion(fragmentActivity));
     return new AlertDialog.Builder(fragmentActivity).setNegativeButton(
-        R.string.about_license, new DialogInterface.OnClickListener() {
+        R.string.generic_cancel, new OnClickListener() {
             @Override
           public void onClick(DialogInterface dialog, int which) {
-            caller.onAboutLicense();
+            caller.onEnableSyncDone(false);
           }
-        }).setPositiveButton(R.string.generic_ok, null).setTitle(R.string.help_about).setView(view)
-        .create();
+        }).setPositiveButton(R.string.generic_ok, new OnClickListener() {
+        @Override
+      public void onClick(DialogInterface dialog, int which) {
+        caller.onEnableSyncDone(true);
+      }
+    }).setTitle(R.string.enable_sync_title).setMessage(R.string.enable_sync_message).create();
+  }
+
+  @Override
+  public void onCancel(DialogInterface arg0) {
+    caller.onEnableSyncDone(false);
   }
 }

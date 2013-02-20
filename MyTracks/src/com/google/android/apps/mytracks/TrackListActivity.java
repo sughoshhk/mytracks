@@ -23,17 +23,21 @@ import com.google.android.apps.mytracks.content.TrackDataListener;
 import com.google.android.apps.mytracks.content.TrackDataType;
 import com.google.android.apps.mytracks.content.TracksColumns;
 import com.google.android.apps.mytracks.content.Waypoint;
-import com.google.android.apps.mytracks.fragments.AddPeopleDialogFragment;
 import com.google.android.apps.mytracks.fragments.ConfirmDialogFragment;
 import com.google.android.apps.mytracks.fragments.ConfirmDialogFragment.ConfirmCaller;
 import com.google.android.apps.mytracks.fragments.DeleteAllTrackDialogFragment;
 import com.google.android.apps.mytracks.fragments.DeleteOneTrackDialogFragment;
 import com.google.android.apps.mytracks.fragments.DeleteOneTrackDialogFragment.DeleteOneTrackCaller;
+import com.google.android.apps.mytracks.fragments.EnableSyncDialogFragment;
+import com.google.android.apps.mytracks.fragments.EnableSyncDialogFragment.EnableSyncCaller;
 import com.google.android.apps.mytracks.fragments.EulaDialogFragment;
+import com.google.android.apps.mytracks.fragments.EulaDialogFragment.EulaCaller;
 import com.google.android.apps.mytracks.fragments.WelcomeDialogFragment;
+import com.google.android.apps.mytracks.fragments.WelcomeDialogFragment.WelcomeCaller;
 import com.google.android.apps.mytracks.io.file.ImportActivity;
 import com.google.android.apps.mytracks.io.file.SaveActivity;
 import com.google.android.apps.mytracks.io.file.TrackFileFormat;
+import com.google.android.apps.mytracks.io.sendtogoogle.SendRequest;
 import com.google.android.apps.mytracks.io.sync.SyncUtils;
 import com.google.android.apps.mytracks.services.ITrackRecordingService;
 import com.google.android.apps.mytracks.services.TrackRecordingServiceConnection;
@@ -63,9 +67,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.provider.Settings;
-import android.speech.tts.TextToSpeech;
 import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.LoaderManager.LoaderCallbacks;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
@@ -92,8 +94,8 @@ import java.util.Locale;
  * 
  * @author Leif Hendrik Wilden
  */
-public class TrackListActivity extends FragmentActivity
-    implements ConfirmCaller, DeleteOneTrackCaller {
+public class TrackListActivity extends AbstractSendToGoogleActivity
+    implements EulaCaller, WelcomeCaller, EnableSyncCaller, ConfirmCaller, DeleteOneTrackCaller {
 
   private static final String TAG = TrackListActivity.class.getSimpleName();
   private static final String START_GPS_KEY = "start_gps_key";
@@ -356,9 +358,7 @@ public class TrackListActivity extends FragmentActivity
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    setVolumeControlStream(TextToSpeech.Engine.DEFAULT_STREAM);
     setDefaultKeyMode(DEFAULT_KEYS_SEARCH_LOCAL);
-    setContentView(R.layout.track_list);
 
     myTracksProviderUtils = MyTracksProviderUtils.Factory.get(this);
     sharedPreferences = getSharedPreferences(Constants.SETTINGS_NAME, Context.MODE_PRIVATE);
@@ -511,6 +511,16 @@ public class TrackListActivity extends FragmentActivity
   }
 
   @Override
+  protected int getLayoutResId() {
+    return R.layout.track_list;
+  }
+
+  @Override
+  protected boolean configureActionBarHomeAsUp() {
+    return false;    
+  }
+  
+  @Override
   public boolean onCreateOptionsMenu(Menu menu) {
     getMenuInflater().inflate(R.menu.track_list, menu);
     String fileTypes[] = getResources().getStringArray(R.array.file_types);
@@ -632,11 +642,14 @@ public class TrackListActivity extends FragmentActivity
   }
 
   @Override
-  public void onConfirmed(int confirmId, long trackId) {
+  public void onConfirmDone(int confirmId, long trackId) {
     switch (confirmId) {
       case R.string.confirm_share_drive_key:
-        AddPeopleDialogFragment.newInstance(trackId)
-            .show(getSupportFragmentManager(), AddPeopleDialogFragment.ADD_PEOPLE_DIALOG_TAG);
+        AnalyticsUtils.sendPageViews(this, "/action/share_drive");
+        SendRequest sendRequest = new SendRequest(trackId);
+        sendRequest.setSendDrive(true);
+        sendRequest.setDriveShare(true);
+        sendToGoogle(sendRequest);
         break;
       default:
     }
@@ -648,7 +661,7 @@ public class TrackListActivity extends FragmentActivity
   }
 
   @Override
-  public void onTrackDeleted() {
+  public void onDeleteOneTrackDone() {
     // Do nothing
   }
 
@@ -681,6 +694,21 @@ public class TrackListActivity extends FragmentActivity
     }
   }
 
+  @Override
+  public void onEulaDone() {
+    if (EulaUtils.getAcceptEula(this)) {
+      showStartupDialogs();
+      return;
+    }
+    finish();    
+  }
+
+  @Override
+  public void onWelcomeDone() {
+    EulaUtils.setShowWelcome(this);
+    showStartupDialogs();    
+  }
+
   private void checkGooglePlayServices() {
     int code = GooglePlayServicesUtil.isGooglePlayServicesAvailable(this);
     if (code != ConnectionResult.SUCCESS) {
@@ -694,7 +722,31 @@ public class TrackListActivity extends FragmentActivity
           });
       if (dialog != null) {
         dialog.show();
+        return;
       }
+    }
+    showEnableSync();
+  }
+
+  private void showEnableSync() {
+    if (EulaUtils.getShowEnableSync(this)) {
+      Fragment fragment = getSupportFragmentManager()
+          .findFragmentByTag(EnableSyncDialogFragment.ENABLE_SYNC_DIALOG_TAG);
+      if (fragment == null) {
+        new EnableSyncDialogFragment().show(
+            getSupportFragmentManager(), EnableSyncDialogFragment.ENABLE_SYNC_DIALOG_TAG);
+      }
+    }
+  }
+
+  @Override
+  public void onEnableSyncDone(boolean enable) {
+    EulaUtils.setShowEnableSync(this);
+    if (enable) {
+      SendRequest sendRequest = new SendRequest(-1L);
+      sendRequest.setSendDrive(true);
+      sendRequest.setDriveEnableSync(true);
+      sendToGoogle(sendRequest);
     }
   }
 

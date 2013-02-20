@@ -50,9 +50,9 @@ public class DeleteOneTrackDialogFragment extends DialogFragment {
     public TrackRecordingServiceConnection getTrackRecordingServiceConnection();
 
     /**
-     * Called when a track is deleted.
+     * Called when delete one track is done.
      */
-    public void onTrackDeleted();
+    public void onDeleteOneTrackDone();
   }
   
   public static final String DELETE_ONE_TRACK_DIALOG_TAG = "deleteOneTrackDialog";
@@ -67,8 +67,8 @@ public class DeleteOneTrackDialogFragment extends DialogFragment {
     return deleteOneTrackDialogFragment;
   }
 
-  private FragmentActivity fragmentActivity;
   private DeleteOneTrackCaller caller;
+  private FragmentActivity fragmentActivity;
 
   @Override
   public void onAttach(Activity activity) {
@@ -76,7 +76,8 @@ public class DeleteOneTrackDialogFragment extends DialogFragment {
     try {
       caller = (DeleteOneTrackCaller) activity;
     } catch (ClassCastException e) {
-      throw new ClassCastException(activity.toString() + " must implement DeleteOneTrackCaller");
+      throw new ClassCastException(
+          activity.toString() + " must implement " + DeleteOneTrackCaller.class.getSimpleName());
     }
   }
 
@@ -97,7 +98,7 @@ public class DeleteOneTrackDialogFragment extends DialogFragment {
                 @Override
               public void run() {
                 MyTracksProviderUtils.Factory.get(fragmentActivity).deleteTrack(trackId);
-                caller.onTrackDeleted();
+                caller.onDeleteOneTrackDone();
               }
             }).start();
           }

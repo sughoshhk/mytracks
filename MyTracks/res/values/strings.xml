@@ -556,6 +556,20 @@ limitations under the License.
     Segment
   </string>
 
+  <!-- Enable Sync -->
+  <string name="enable_sync_message"
+    translation_description="The dialog message asking the user if he wants to enable sync with
+      Google Drive.">
+    Do you want to sync your tracks with Google Drive? This will allow you to view your tracks in
+    Google Drive, share tracks via Google Drive, and view tracks shared with you. All tracks synced
+    to Google Drive will be private by default.     
+  </string>
+  <string name="enable_sync_title"
+    translation_description="The dialog title asking the user if he wants to enable sync with Google
+      Drive.">
+    Sync with Google Drive
+  </string>
+        
   <!-- Eula -->
   <string name="eula_accept"
     translation_description="In the 'Terms of Service' dialog, the button to accept.">
@@ -1246,17 +1260,17 @@ limitations under the License.
       Character limit: ~20 (1 line)">
     Settings
   </string>
-  <string name="menu_share"
-    translation_description="In the menu, to share a track.
+  <string name="menu_share_maps"
+    translation_description="In the menu, to share a track via Google Maps.
 
       Character limit: ~20 (1 line)">
-    Share
+    Share via Google Maps
   </string>
   <string name="menu_share_drive"
     translation_description="In the menu, to share a track via Google Drive.
 
       Character limit: ~20 (1 line)">
-    Share via Drive
+    Share via Google Drive
   </string>
   <string name="menu_show_on_map"
     translation_description="In the menu, to show a track or a marker on the map.
@@ -2220,11 +2234,11 @@ limitations under the License.
   </string>
 
   <!-- Share Track -->
-  <string name="share_track_add_people"
-    translation_description="The dialog title for adding people to share a track with.">
-    Add people
+  <string name="share_track_add_emails_title"
+    translation_description="The dialog title for adding emails to share a track with.">
+    Add emails
   </string>  
-  <string name="share_track_add_people_hint"
+  <string name="share_track_add_emails_hint"
     translation_description="The hint in the auto complete text box for entering email addresses.">
     Enter email addresses
   </string>  
@@ -2234,7 +2248,7 @@ limitations under the License.
     This will upload your track to Google Drive so you can share the file with friends. The file
     will be private and only those you have shared with will have access.
   </string>
-  <string name="share_track_map_confirm_message"
+  <string name="share_track_maps_confirm_message"
     translation_description="The confirmation message when sharing a track via Google Maps with
       friends.
 
