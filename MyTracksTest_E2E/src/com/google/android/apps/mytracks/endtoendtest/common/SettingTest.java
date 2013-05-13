@@ -13,10 +13,12 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.google.android.apps.mytracks.endtoendtest;
+package com.google.android.apps.mytracks.endtoendtest.common;
 
 import com.google.android.apps.mytracks.ChartView;
 import com.google.android.apps.mytracks.TrackListActivity;
+import com.google.android.apps.mytracks.endtoendtest.EndToEndTestUtils;
+import com.google.android.apps.mytracks.endtoendtest.GoogleUtils;
 import com.google.android.apps.mytracks.util.PreferencesUtils;
 import com.google.android.maps.mytracks.R;
 
@@ -95,8 +97,8 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
     // Reset all settings.
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.settings_backup_reset));
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.settings_reset));
-    EndToEndTestUtils
-        .getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true, true);
+    EndToEndTestUtils.getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true,
+        true);
     EndToEndTestUtils.SOLO.waitForText(activityMyTracks.getString(R.string.settings_reset_done));
     instrumentation.waitForIdleSync();
     EndToEndTestUtils.SOLO.goBack();
@@ -143,7 +145,7 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
     // Test just change preferred units when display CHART tab.
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.track_detail_chart_tab));
     EndToEndTestUtils.sendGps(3);
-    ChangeStatsSettings(true, false, false, false, false);
+    ChangeStatsSettings(true, false, false, false);
     EndToEndTestUtils.sendGps(3, 3);
     EndToEndTestUtils.stopRecording(true);
 
@@ -157,7 +159,7 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
     // Test change preferred units and preferred rate when display STATS tab.
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.track_detail_stats_tab));
     EndToEndTestUtils.sendGps(3);
-    ChangeStatsSettings(true, true, false, false, false);
+    ChangeStatsSettings(true, true, false, false);
     EndToEndTestUtils.sendGps(3, 3);
     EndToEndTestUtils.stopRecording(true);
 
@@ -168,18 +170,26 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
    * Stats tab.
    */
   public void testChangeStatsSettings_showExtraInfos() {
-    EndToEndTestUtils.createTrackIfEmpty(5, false);
     EndToEndTestUtils.resetAllSettings(activityMyTracks, true);
-    ChangeStatsSettings(false, false, true, true, true);
+    ChangeStatsSettings(false, false, true, true);
+    EndToEndTestUtils.startRecording();
     instrumentation.waitForIdleSync();
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.track_detail_stats_tab));
     assertTrue(EndToEndTestUtils.SOLO.waitForText(
-        activityMyTracks.getString(R.string.stats_min_elevation), 1,
+        activityMyTracks.getString(R.string.stats_elevation), 1,
         EndToEndTestUtils.NORMAL_WAIT_TIME, true));
-    assertTrue(EndToEndTestUtils.SOLO.waitForText(activityMyTracks
-        .getString(R.string.stats_min_grade)));
+    assertTrue(EndToEndTestUtils.SOLO.waitForText(activityMyTracks.getString(R.string.stats_grade)));
     assertTrue(EndToEndTestUtils.SOLO.waitForText(activityMyTracks
         .getString(R.string.stats_latitude)));
+
+    EndToEndTestUtils.stopRecording(true);
+    assertTrue(EndToEndTestUtils.SOLO.waitForText(
+        activityMyTracks.getString(R.string.stats_elevation), 1,
+        EndToEndTestUtils.NORMAL_WAIT_TIME, true));
+    assertTrue(EndToEndTestUtils.SOLO.waitForText(activityMyTracks.getString(R.string.stats_grade)));
+    assertFalse(EndToEndTestUtils.SOLO.waitForText(
+        activityMyTracks.getString(R.string.stats_latitude), 1,
+        EndToEndTestUtils.VERY_SHORT_WAIT_TIME));
   }
 
   /**
@@ -187,12 +197,11 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
    * 
    * @param changeUnits is change the preferred unit
    * @param changeRate is change the preferred rate
-   * @param changeElevation is change the elevation
-   * @param changeGrade is change the grade
+   * @param changeGradeElevation is change the grade and elevation
    * @param changeLatLong is change the latitude and longitude
    */
   private void ChangeStatsSettings(boolean changeUnits, boolean changeRate,
-      boolean changeElevation, boolean changeGrade, boolean changeLatLong) {
+      boolean changeGradeElevation, boolean changeLatLong) {
     EndToEndTestUtils.findMenuItem(activityMyTracks.getString(R.string.menu_settings), true);
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.track_detail_stats_tab));
     assertTrue(EndToEndTestUtils.SOLO.waitForText(activityMyTracks
@@ -207,12 +216,9 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
       EndToEndTestUtils.SOLO.clickOnText(activityMyTracks
           .getString(R.string.settings_stats_rate_title));
     }
-    if (changeElevation) {
-      EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.stats_elevation));
-    }
-    if (changeGrade) {
-      EndToEndTestUtils.SOLO.clickOnText(
-          activityMyTracks.getString(R.string.settings_stats_grade_elevation));
+    if (changeGradeElevation) {
+      EndToEndTestUtils.SOLO.clickOnText(activityMyTracks
+          .getString(R.string.settings_stats_grade_elevation));
     }
     if (changeLatLong) {
       EndToEndTestUtils.SOLO.clickOnText(activityMyTracks
@@ -276,8 +282,8 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.settings_backup_now));
     EndToEndTestUtils.SOLO
         .clickOnText(activityMyTracks.getString(R.string.settings_backup_restore));
-    EndToEndTestUtils
-        .getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true, true);
+    EndToEndTestUtils.getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true,
+        true);
 
     // Now there should be 2 backups.
     instrumentation.waitForIdleSync();
@@ -297,8 +303,8 @@ public class SettingTest extends ActivityInstrumentationTestCase2<TrackListActiv
     EndToEndTestUtils.SOLO.clickOnText(activityMyTracks.getString(R.string.settings_backup_reset));
     EndToEndTestUtils.SOLO
         .clickOnText(activityMyTracks.getString(R.string.settings_backup_restore));
-    EndToEndTestUtils
-        .getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true, true);
+    EndToEndTestUtils.getButtonOnScreen(activityMyTracks.getString(R.string.generic_yes), true,
+        true);
     instrumentation.waitForIdleSync();
 
     // Click the second one.
