@@ -23,15 +23,20 @@ import com.google.android.apps.mytracks.content.Waypoint.WaypointType;
 import com.google.android.apps.mytracks.fragments.DeleteMarkerDialogFragment;
 import com.google.android.apps.mytracks.fragments.DeleteMarkerDialogFragment.DeleteMarkerCaller;
 import com.google.android.apps.mytracks.util.IntentUtils;
+import com.google.android.apps.mytracks.util.PhotoUtils;
 import com.google.android.apps.mytracks.util.StatsUtils;
 import com.google.android.maps.mytracks.R;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 /**
@@ -51,6 +56,7 @@ public class MarkerDetailActivity extends AbstractMyTracksActivity implements De
   private TextView name;
   private View waypointSection;
   private View statisticsSection;
+  private Bitmap bitmap;
 
   @Override
   protected void onCreate(Bundle bundle) {
@@ -63,6 +69,15 @@ public class MarkerDetailActivity extends AbstractMyTracksActivity implements De
       finish();
       return;
     }
+
+    // Set waypoint, needed in onCreateOptionsMenu
+    waypoint = myTracksProviderUtils.getWaypoint(markerId);
+    if (waypoint == null) {
+      Log.d(TAG, "waypoint is null");
+      finish();
+      return;
+    }
+
     name = (TextView) findViewById(R.id.marker_detail_name);
     waypointSection = findViewById(R.id.marker_detail_waypoint_section);
     statisticsSection = findViewById(R.id.marker_detail_statistics_section);
@@ -76,12 +91,15 @@ public class MarkerDetailActivity extends AbstractMyTracksActivity implements De
   @Override
   protected void onResume() {
     super.onResume();
-    waypoint = MyTracksProviderUtils.Factory.get(this).getWaypoint(markerId);
+
+    // Update waypoint in case it changed from an edit
+    waypoint = myTracksProviderUtils.getWaypoint(markerId);
     if (waypoint == null) {
       Log.d(TAG, "waypoint is null");
       finish();
       return;
     }
+
     name.setText(getString(R.string.generic_name_line, waypoint.getName()));
     if (waypoint.getType() == WaypointType.WAYPOINT) {
       waypointSection.setVisibility(View.VISIBLE);
@@ -92,6 +110,18 @@ public class MarkerDetailActivity extends AbstractMyTracksActivity implements De
           getString(R.string.marker_detail_waypoint_marker_type, waypoint.getCategory()));
       TextView description = (TextView) findViewById(R.id.marker_detail_waypoint_description);
       description.setText(getString(R.string.generic_description_line, waypoint.getDescription()));
+      ImageView imageView = (ImageView) findViewById(R.id.marker_detail_waypoint_photo);
+      String photoUrl = waypoint.getPhotoUrl();
+      if (photoUrl == null || photoUrl.equals("")) {
+        imageView.setVisibility(View.GONE);
+      } else {
+        imageView.setVisibility(View.VISIBLE);
+        Display defaultDisplay = getWindowManager().getDefaultDisplay();
+        int displayWidth = defaultDisplay.getWidth();
+        int displayHeight = defaultDisplay.getHeight();
+        bitmap = PhotoUtils.setImageVew(
+            imageView, Uri.parse(photoUrl), displayWidth, displayHeight, true);
+      }
     } else {
       waypointSection.setVisibility(View.GONE);
       statisticsSection.setVisibility(View.VISIBLE);
@@ -101,12 +131,20 @@ public class MarkerDetailActivity extends AbstractMyTracksActivity implements De
   }
 
   @Override
+  protected void onPause() {
+    super.onPause();
+    if (bitmap != null) {
+      bitmap.recycle();
+    }
+  }
+
+  @Override
   public boolean onCreateOptionsMenu(Menu menu) {
     getMenuInflater().inflate(R.menu.marker_detail, menu);
 
     Track track = myTracksProviderUtils.getTrack(waypoint.getTrackId());
     boolean isSharedWithMe = track != null ? track.isSharedWithMe() : true;
-    
+
     menu.findItem(R.id.marker_detail_edit).setVisible(!isSharedWithMe);
     menu.findItem(R.id.marker_detail_delete).setVisible(!isSharedWithMe);
     return true;
